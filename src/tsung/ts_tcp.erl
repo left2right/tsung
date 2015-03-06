@@ -37,6 +37,7 @@ protocol_options(#proto_opts{tcp_rcv_size=Rcv, tcp_snd_size=Snd}) ->
      {active, once},
      {recbuf, Rcv},
      {sndbuf, Snd},
+     {reuseaddr, true},
      {keepalive, true} %% FIXME: should be an option
     ].
 %% -> {ok, Socket}
