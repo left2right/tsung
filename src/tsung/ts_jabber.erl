@@ -313,6 +313,8 @@ subst2(Req=#jabber{type = Type}, Dynvars) when Type == 'starttls' ->
 subst2(Req=#jabber{type = Type}, Dynvars) when Type == 'muc:chat' ; Type == 'muc:join'; Type == 'muc:nick' ; Type == 'muc:exit' ->
     Req#jabber{nick = ts_search:subst(Req#jabber.nick, Dynvars),
                room = ts_search:subst(Req#jabber.room, Dynvars)};
+subst2(Req=#jabber{type = Type}, Dynvars) when Type == 'muc:info' ->
+    Req#jabber{room = ts_search:subst(Req#jabber.room, Dynvars)};
 subst2(Req=#jabber{type = Type}, Dynvars) when Type == 'pubsub:create' ; Type == 'pubsub:subscribe'; Type == 'pubsub:publish'; Type == 'pubsub:delete' ->
     Req#jabber{node = ts_search:subst(Req#jabber.node, Dynvars)};
 subst2(Req=#jabber{type = Type}, Dynvars) when Type == 'pubsub:unsubscribe' ->

@@ -265,6 +265,10 @@ get_message(#jabber{type = 'muc:nick', room = Room, muc_service = Service, nick 
     muc_nick(Room, Nick, Service);
 get_message(#jabber{type = 'muc:exit', room = Room, muc_service = Service, nick = Nick}) ->
     muc_exit(Room, Nick, Service);
+get_message(#jabber{type = 'muc:info', room = Room, muc_service = Service}) ->
+    muc_info(Room, Service);
+get_message(#jabber{type = 'muc:rooms', muc_service = Service}) ->
+    muc_rooms(Service);
 
 get_message(Jabber=#jabber{id=user_defined}) ->
     get_message2(Jabber);
@@ -727,6 +731,19 @@ muc_exit(Room,Nick, Service) ->
     Result = list_to_binary(["<presence to='", Room,"@", Service,"/", Nick, "' type='unavailable'/>"]),
     Result.
 
+muc_info(Room, Service) ->
+    Result = list_to_binary(["<iq to='", Room,"@", Service,"' type='get' id='",
+            ts_msg_server:get_id(list),"'>"
+            "<query xmlns='http://jabber.org/protocol/disco#info'></query>",
+                           " </iq>"]),
+    Result.
+
+muc_rooms(Service) ->
+    Result = list_to_binary(["<iq to='", Service,"' type='get' id='",
+            ts_msg_server:get_id(list),"'>"
+            "<query xmlns='http://jabber.org/protocol/disco#items'></query>",
+                             " </iq>"]),
+    Result.
 
 %%%----------------------------------------------------------------------
 %%% Func: privacy_get_names/2
