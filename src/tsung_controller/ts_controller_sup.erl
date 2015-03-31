@@ -110,8 +110,8 @@ start_inets(LogDir) ->
                                   file:copy(filename:join(Path,CSS),DestName)
                           end,Styles),
 
-            Redirect= << "<meta http-equiv=\"refresh\" content=\"0; url=/LogDir\">\n" >>,
-            file:write_file(filename:join(LogDir,"index.html"), Redirect),
+            %% Redirect= << "<meta http-equiv=\"refresh\" content=\"0; url=/es/ts_web:status\">\n" >>,
+            %% file:write_file(filename:join(LogDir,"index.html"), Redirect),
             Inets = inets:start(httpd, [{port, 8091},
                                         {modules,[mod_esi,
                                                   mod_dir,
@@ -123,7 +123,7 @@ start_inets(LogDir) ->
                                         {erl_script_alias, {"/es", [ts_web, ts_api]}},
                                         {error_log, "inets_error.log"},
                                         %% {transfer_log, "inets_access.log"},
-                                        {directory_index, ["index.html"]},
+                                        %% {directory_index, ["index.html"]},
                                         {mime_types,[ {"html","text/html"},
                                                       {"css","text/css"},
                                                       {"png","image/png"},
