@@ -65,6 +65,22 @@ the thinktime value:
 
  <thinktime value="%%_rndthink%%" random="true"></thinktime>
 
+You can also synchronize all users using the ``wait_global`` value:
+
+.. code-block:: xml
+
+ <thinktime value='wait_global'>
+
+which means: wait for all (N) users to be connected and waiting for
+the global lock (the value can be set using the option ``<option
+name="global_number" value ="XXX"/>`` and by setting `maxnumber=N` in
+``<arrivalphase>``).
+
+**Since version 1.5.2**, you can wait for a 'bidi' ack. If your protocol is bidirectionnal (e.g. xmpp, websocket, ...), you can wait until the server sends some data, and the code that handle this data exits the ``think`` state.
+
+.. code-block:: xml
+
+   <thinktime value="wait_bidi"></thinktime> -
 
 HTTP
 ^^^^
@@ -266,7 +282,7 @@ Here is an example of a session definition for the Jabber/XMPP protocol:
    </sessions>
 
 Message stamping
-""""""""
+""""""""""""""""
 
 It is possible to stamp chat message by setting ``stamped`` attribute of
 ``<jabber>`` element inside request to ``true``. The stamp will include current
@@ -293,14 +309,14 @@ To secure a stream with STARTTLS, use:
 
 .. code-block:: xml
 
- <jabber type="starttls" ack="local" />
+ <jabber type="starttls" ack="bidi_ack" />
 
 Client certificate is implemented since **1.5.1**, for example, you can
 use dynamic variables like this:
 
 .. code-block:: xml
 
- <jabber type="starttls" ack="local"
+ <jabber type="starttls" ack="bidi_ack"
             cacertfile="%%_cacert%%"
             certfile="%%_certfile%%"
             keyfile="%%_keyfile%%" />
@@ -655,7 +671,7 @@ offline and random users (also used for pubsub):
   <option type="ts_jabber" name="userid_max" value="0" />
   <option type="ts_jabber" name="random_from_fileid" value='userdb'/>
   <option type="ts_jabber" name="offline_from_fileid" value='userdb'/>
-  <option type="ts_jabber" name="delimiter" value=";"/>
+  <option type="ts_jabber" name="fileid_delimiter" value=";"/>
  </options>
 
 
@@ -1184,3 +1200,46 @@ A dynamic variable set in the first part of the session will be
 available after a **<change_type>**. There is currently one caveat: you have
 to use a full URL in the first http request after a **<change_type>** (a
 relative URL will fail).
+
+
+Raw
+^^^^^^^^^
+.. _sec-session-raw-label:
+
+The **ts_raw** plugin allows you to send traffic to any kind of
+TCP/UDP server without any knowledge of the underlying protocol. You can set the data
+by attribute ``data``, or just set a data size by attribute
+``datasize`` (in this situation, Tsung send ``datasize`` bits of
+zeros). ``data`` and ``datasize`` can be a dynamic values.
+
+The only way to control the response from the server is to use the
+``ack`` attribute (also used by the **jabber** plugin):
+
+* ``ack="local"`` as soon as a packet is received from the server, the
+  request is considered as completed. Hence if you use a local ack with a request
+  that do not require a response from the server, it
+  will wait forever (or until a timeout is reached).
+
+* ``ack="no_ack"`` as soon as the request is send, it is considered as completed (do
+  not wait for incoming data).
+
+* ``ack="global"`` synchronized users. its main use is for waiting for all
+  users to connect before sending messages. To do that, set a request
+  with global ack  (the value can be set using the option ``<option
+  name="global_number" value ="XXX"/>`` and by setting `maxnumber=N` in
+  ``<arrivalphase>``).
+
+.. code-block:: xml
+
+ <session probability="100" name="raw" type="ts_raw">
+    <transaction name="open">
+      <request> <raw data="HELLO" ack="local"></raw> </request>
+    </transaction>
+
+    <thinktime value="4"/>
+    <request> <raw datasize="2048" ack="local"></raw> </request>
+
+    <transaction name="bye">
+      <request> <raw data="BYEBYE" ack="local"></raw> </request>
+    </transaction>
+ </session>

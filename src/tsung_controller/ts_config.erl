@@ -236,7 +236,10 @@ parse(Element = #xmlElement{name=client, attributes=Attrs},
                 DeleteController=fun(A) when A == ControllerHost -> false;
                                     (_) -> true
                                  end,
-                Nodes = lists:filter(DeleteController, NodesTmp),
+                Nodes = case lists:filter(DeleteController, NodesTmp) of
+                            []  -> NodesTmp; %% all nodes are on the controller, don't remove them
+                            Val -> Val
+                        end,
                 Fun = fun(N)->
                               IP = case Scan_Intf of
                                        "" ->
@@ -849,6 +852,7 @@ parse(Element = #xmlElement{name=option, attributes=Attrs},
                     Timeout = getAttr(integer,Attrs, value, ?config(global_ack_timeout)),
                     OldProto =  Conf#config.proto_opts,
                     NewProto =  OldProto#proto_opts{global_ack_timeout=Timeout},
+                    ts_timer:set_timeout(Timeout),
                     lists:foldl( fun parse/2, Conf#config{proto_opts=NewProto},
                                  Element#xmlElement.content);
                 "max_retries" ->
@@ -893,6 +897,21 @@ parse(Element = #xmlElement{name=option, attributes=Attrs},
                     lists:foldl( fun parse/2,
                                  Conf#config{file_server=[{Id, FileName} | Conf#config.file_server]},
                                  Element#xmlElement.content);
+                "global_number" ->
+                    GlobalNumber = getAttr(integer, Attrs, value, ?config(global_number)),
+                    ts_timer:config(GlobalNumber),
+                    lists:foldl( fun parse/2, Conf, Element#xmlElement.content);
+                "tcp_reuseaddr" ->
+                    Reuseaddr = getAttr(atom, Attrs, value, false),
+                    case Reuseaddr of
+                        true ->
+                            OldProto =  Conf#config.proto_opts,
+                            NewProto =  OldProto#proto_opts{tcp_reuseaddr = Reuseaddr},
+                            lists:foldl( fun parse/2, Conf#config{proto_opts=NewProto},
+                                         Element#xmlElement.content);
+                        false ->
+                            lists:foldl( fun parse/2, Conf, Element#xmlElement.content)
+                    end;
                 Other ->
                     ?LOGF("Unknown option ~p !~n",[Other], ?WARN),
                     lists:foldl( fun parse/2, Conf, Element#xmlElement.content)
@@ -907,6 +926,8 @@ parse(Element = #xmlElement{name=option, attributes=Attrs},
 parse(Element = #xmlElement{name=thinktime, attributes=Attrs},
       Conf = #config{curid=Id, session_tab = Tab, sessions = [CurS |_]}) ->
     {RT,T} = case getAttr(Attrs, value)  of
+            "wait_bidi" ->
+                {infinity, infinity};
             "wait_global" ->
                 {wait_global,infinity};
             "%%"++Tail -> % dynamic thinktime

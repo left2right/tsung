@@ -56,11 +56,17 @@ You can specify a timeout in milliseconds for establishing a TCP connection. The
 
  <option name="connect_timeout" value="5000" />
 
+
 You can also change the timeout on a per-session basis using ``set_option``.
 
 .. code-block:: xml
 
  <set_option name="connect_timeout" value="1000" />
+
+You can also enable the TCP REUSEADDR option globally:
+
+ <option name="tcp_reuseaddr" value="true" />
+
 
 Retry Attempts and Timeouts
 ---------------------------------------
@@ -95,7 +101,7 @@ can be changed like this:
 .. code-block:: xml
 
  <option name="idle_timeout" value="300000"></option>
- <option name="glocal_ack_timeout" value="6000000"></option>
+ <option name="global_ack_timeout" value="6000000"></option>
 
 
 .. index:: hibernate
@@ -174,7 +180,7 @@ request:
 
 .. code-block:: xml
 
-  <option name="bosh_path" value="/http-bind"/>
+  <option name="bosh_path" value="/http-bind/"/>
 
 .. _jabber-options-label:
 
