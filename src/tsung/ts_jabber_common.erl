@@ -274,10 +274,11 @@ get_message(Jabber=#jabber{id=user_defined}) ->
     get_message2(Jabber);
 
 %% Privacy lists benchmark support
-get_message(#jabber{type = 'privacy:get_names', username = Name, domain = Domain}) ->
-    privacy_get_names(Name, Domain);
-get_message(#jabber{type = 'privacy:set_active', username = Name, domain = Domain}) ->
-    privacy_set_active(Name, Domain);
+%%get_message(#jabber{type = 'privacy:get_names', username = Name, domain = Domain, resource=Resource}) ->
+%%    privacy_get_names(Name, Domain, Resource);
+%%get_message(#jabber{type = 'privacy:set_active', username = Name, domain = Domain, resource=Resource}) ->
+%%    privacy_set_active(Name, Domain, Resource);
+
 
 get_message(Jabber) ->
     get_message2(Jabber).
@@ -304,7 +305,24 @@ get_message2(Jabber=#jabber{type = 'auth_sasl_anonymous'}) ->
 get_message2(Jabber=#jabber{type = 'auth_sasl_bind'}) ->
     auth_sasl_bind(Jabber);
 get_message2(Jabber=#jabber{type = 'auth_sasl_session'}) ->
-    auth_sasl_session(Jabber).
+    auth_sasl_session(Jabber);
+
+
+%% Privacy lists benchmark support
+get_message2(Jabber=#jabber{type = 'privacy:get_names'}) ->
+    privacy_get_names(Jabber);
+get_message2(Jabber=#jabber{type = 'privacy:create_special_list'}) ->
+  privacy_create_special_list(Jabber);
+get_message2(Jabber=#jabber{type = 'privacy:set_special_list_default'}) ->
+  privacy_set_special_list_default(Jabber);
+get_message2(Jabber=#jabber{type = 'privacy:set_special_list_active'}) ->
+  privacy_set_special_list_active(Jabber);
+%%get_message2(Jabber=#jabber{type = 'privacy:add_user_in_special_list'}) ->
+%%  privacy_add_user_in_special_list(Jabber);
+%%get_message2(Jabber=#jabber{type = 'privacy:delete_user_in_special_list'}) ->
+%%  privacy_delete_user_in_special_list(Jabber);
+get_message2(Jabber=#jabber{type = 'privacy:get_special_list'}) ->
+  privacy_get_special_list(Jabber).
 
 
 %%----------------------------------------------------------------------
@@ -455,7 +473,7 @@ auth_sasl_bind(#jabber{username=Name,passwd=Passwd,domain=Domain, resource=Resou
 %%----------------------------------------------------------------------
 auth_sasl_bind(_Username, _Passwd, _Domain, Resource) ->
  list_to_binary(["<iq type='set' id='",ts_msg_server:get_id(list),
-                 "'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'>",
+                 "' ><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'>",
                  "<resource>",Resource,"</resource>",
                  "</bind></iq>"]).
 
@@ -472,7 +490,146 @@ auth_sasl_session(#jabber{username=Name,passwd=Passwd,domain=Domain})->
 %%----------------------------------------------------------------------
 auth_sasl_session(_Username, _Passwd, _Domain) ->
  list_to_binary(["<iq type='set' id='",ts_msg_server:get_id(list),
-"'><session xmlns='urn:ietf:params:xml:ns:xmpp-session'/></iq>"]).
+"' ><session xmlns='urn:ietf:params:xml:ns:xmpp-session' /></iq>"]).
+
+
+%%----------------------------------------------------------------------
+%% Func: privacy_get_names/1
+%%----------------------------------------------------------------------
+privacy_get_names(#jabber{username=Name,domain=Domain, resource=Resource})->
+  privacy_get_names(Name, Domain, Resource).
+
+%%%----------------------------------------------------------------------
+%%% Func: privacy_get_names/3
+%%% Get names of special privacy lists server stores for the user
+%%%----------------------------------------------------------------------
+privacy_get_names(User, Domain, Resource) ->
+  Jid = [User,"@",Domain,"/",Resource],
+  Id = ts_msg_server:get_id(list),
+  Req = ["<iq from='", Jid, "' type='get' id='", Id, "'>",
+    "<query xmlns='jabber:iq:privacy'>",
+    "</query>",
+    "</iq>"],
+  list_to_binary(Req).
+
+
+%%----------------------------------------------------------------------
+%% Func: privacy_create_special_list/1
+%%----------------------------------------------------------------------
+privacy_create_special_list(#jabber{username=Name,domain=Domain, resource=Resource})->
+  privacy_create_special_list(Name, Domain, Resource).
+
+%%%----------------------------------------------------------------------
+%%% Func: privacy_create_special_list/3
+%%% Create special privacy list for the user
+%%%----------------------------------------------------------------------
+privacy_create_special_list(User, Domain, Resource) ->
+  Jid = [User,"@",Domain,"/",Resource],
+  Id = ts_msg_server:get_id(list),
+  Req = ["<iq from='", Jid, "' type='set' id='", Id, "'>",
+    "<query xmlns='jabber:iq:privacy'>",
+    "<list name='special'>",
+    "<item action='deny' order='100' type='jid' value=' '>",
+    "<message/>",
+    "</item>",
+    "</list>",
+    "</query>",
+    "</iq>"],
+  list_to_binary(Req).
+
+
+%%----------------------------------------------------------------------
+%% Func: privacy_set_special_list_default/1
+%%----------------------------------------------------------------------
+privacy_set_special_list_default(#jabber{username=Name,domain=Domain, resource=Resource})->
+  privacy_set_special_list_default(Name, Domain, Resource).
+
+%%%----------------------------------------------------------------------
+%%% Func: privacy_set_special_list_default/3
+%%% Set special privacy list default for the user
+%%%----------------------------------------------------------------------
+privacy_set_special_list_default(User, Domain, Resource) ->
+  Jid = [User,"@",Domain,"/",Resource],
+  Id = ts_msg_server:get_id(list),
+  Req = ["<iq from='", Jid, "' type='set' id='", Id, "'>",
+    "<query xmlns='jabber:iq:privacy'>",
+    "<default name='special'/>",
+    "</query>",
+    "</iq>"],
+  list_to_binary(Req).
+
+
+%%----------------------------------------------------------------------
+%% Func: privacy_set_special_list_active/1
+%%----------------------------------------------------------------------
+privacy_set_special_list_active(#jabber{username=Name,domain=Domain, resource=Resource})->
+  privacy_set_special_list_active(Name, Domain, Resource).
+
+%%%----------------------------------------------------------------------
+%%% Func: privacy_set_special_list_active/3
+%%% Set special privacy list active for the user
+%%%----------------------------------------------------------------------
+privacy_set_special_list_active(User, Domain, Resource) ->
+  Jid = [User,"@",Domain,"/",Resource],
+  Id = ts_msg_server:get_id(list),
+  Req = ["<iq from='", Jid, "' type='set' id='", Id, "'>",
+    "<query xmlns='jabber:iq:privacy'>",
+    "<active name='special'/>",
+    "</query>",
+    "</iq>"],
+  list_to_binary(Req).
+
+
+%%----------------------------------------------------------------------
+%% Func: privacy_get_special_list/1
+%%----------------------------------------------------------------------
+privacy_get_special_list(#jabber{username=Name,domain=Domain, resource=Resource})->
+  privacy_get_special_list(Name, Domain, Resource).
+
+%%%----------------------------------------------------------------------
+%%% Func: privacy_get_special_list/3
+%%% Get names of special privacy lists server stores for the user
+%%%----------------------------------------------------------------------
+privacy_get_special_list(User, Domain, Resource) ->
+  Jid = [User,"@",Domain,"/",Resource],
+  Id = ts_msg_server:get_id(list),
+  Req = ["<iq from='", Jid, "' type='get' id='", Id, "'>",
+    "<query xmlns='jabber:iq:privacy'>",
+    "<list name='special'/>",
+    "</query>",
+    "</iq>"],
+  list_to_binary(Req).
+
+
+%%%----------------------------------------------------------------------
+%%% Func: privacy_get_names/3
+%%% Get names of all privacy lists server stores for the user
+%%%----------------------------------------------------------------------
+%%privacy_get_names(User, Domain, Resource) ->
+%%    Jid = [User,"@",Domain,"/",Resource],
+%%    Id = ts_msg_server:get_id(list),
+%%    Req = ["<iq from='", Jid, "' type='get' id='", Id, "'>",
+%%               "<query xmlns='jabber:iq:privacy'>",
+%%               "<list name='special'/>",
+%%              "</query>",
+%%           "</iq>"],
+%%    list_to_binary(Req).
+
+%%%----------------------------------------------------------------------
+%%% Func: privacy_set_active/2
+%%% Set the list named according to pattern "<user>@<domain>_list"
+%%% as active
+%%%----------------------------------------------------------------------
+%%privacy_set_active(User, Domain, Resource) ->
+%%  Jid = [User,"@",Domain,"/",Resource],
+%%  List = [User,"@",Domain,"_list"],
+%%  Req = ["<iq from='", Jid, "' type='set' id='active1'>",
+%%    "<query xmlns='jabber:iq:privacy'>",
+%%    "<active name='", List, "'/>",
+%%    "</query>",
+%%    "</iq>"],
+%%  list_to_binary(Req).
+
 
 %%----------------------------------------------------------------------
 %% Func: registration/1
@@ -497,13 +654,18 @@ message(Dest, #jabber{size=Size,data=undefined,stamped=Stamped}, Service) when i
     list_to_binary([
                     "<message id='",ts_msg_server:get_id(list), "' to='",
                     Dest, "@", Service,
-                    "' type='chat'><body>",StampAndData, "</body></message>"]);
+                    %%"' type='chat'><body>",StampAndData, "</body></message>"]);
+		    "' type='chat'><body>{\"from\":\" \",\"to\":\" \",\"bodies\":[{\"type\":\"txt\",\"msg\":\"",StampAndData,"\"}],\"ext\":{}}",
+		    "</body></message>"]);
 message(Dest, #jabber{data=Data}, Service) when is_list(Data) ->
     put(previous, Dest),
     list_to_binary([
                     "<message id='",ts_msg_server:get_id(list), "' to='",
                     Dest, "@", Service,
-                    "' type='chat'><body>",Data, "</body></message>"]).
+                    %%"' type='chat'><body>",Data, "</body></message>"]).
+		    "' type='chat'><body>{\"from\":\" \",\"to\":\" \",\"bodies\":[{\"type\":\"txt\",\"msg\":\"",Data,"\"}],\"ext\":{}}",
+		    "</body></message>"]).
+
 
 generate_stamp(false) ->
     "";
@@ -720,8 +882,10 @@ muc_join(Room,Nick, Service) ->
 
 muc_chat(Room, Service, Size) ->
     Result = list_to_binary(["<message type='groupchat' to ='", Room,"@", Service,"'>",
-                                "<body>", ts_utils:urandomstr_noflat(Size), "</body>",
-                                "</message>"]),
+                                %%"<body>", ts_utils:urandomstr_noflat(Size), "</body>",
+                                %%"</message>"]),
+				"<body>{\"from\":\" \",\"to\":\" \",\"bodies\":[{\"type\":\"txt\",\"msg\":\"",
+                                ts_utils:urandomstr_noflat(Size),"\"}],\"ext\":{}}</body></message>"]),
     Result.
 muc_nick(Room, Nick, Service) ->
     Result = list_to_binary(["<presence to='", Room,"@", Service,"/", Nick, "'/>"]),
@@ -744,33 +908,6 @@ muc_rooms(Service) ->
             "<query xmlns='http://jabber.org/protocol/disco#items'></query>",
                              " </iq>"]),
     Result.
-
-%%%----------------------------------------------------------------------
-%%% Func: privacy_get_names/2
-%%% Get names of all privacy lists server stores for the user
-%%%----------------------------------------------------------------------
-privacy_get_names(User, Domain) ->
-    Jid = [User,"@",Domain,"/tsung"],
-    Req = ["<iq from='", Jid, "' type='get' id='getlist'>",
-               "<query xmlns='jabber:iq:privacy'/>",
-           "</iq>"],
-    list_to_binary(Req).
-
-%%%----------------------------------------------------------------------
-%%% Func: privacy_set_active/2
-%%% Set the list named according to pattern "<user>@<domain>_list"
-%%% as active
-%%%----------------------------------------------------------------------
-privacy_set_active(User, Domain) ->
-    Jid = [User,"@",Domain,"/tsung"],
-    List = [User,"@",Domain,"_list"],
-    Req = ["<iq from='", Jid, "' type='set' id='active1'>",
-              "<query xmlns='jabber:iq:privacy'>",
-                  "<active name='", List, "'/>",
-              "</query>",
-           "</iq>"],
-    list_to_binary(Req).
-
 
 
 %% set the real Id; by default use the Id; but it user and passwd is
