@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<!DOCTYPE tsung SYSTEM "/usr/local/share/tsung/tsung-1.0.dtd">
+<tsung loglevel="debug" dumptraffic="false" version="1.0">
+	<clients>
+		<client host="client-test1" maxusers="70000" cpu="4"></client>
+	</clients>
+	<servers>
+		<server host="server1" port="5222" type="tcp"/>
+	</servers>
+        <monitoring>
+	        <monitor host="server1" type="erlang"/>
+        </monitoring>
+
+	<load>
+		<arrivalphase phase="1" duration="500" unit="second">
+		        <session_setup name="muc-chat" probability="100"/>
+			<users maxnumber="500000" arrivalrate="100" unit="second"></users>
+		</arrivalphase>
+	</load>
+	<options>
+		<option type="ts_jabber" name="global_number" value="1000000"></option>
+		<option type="ts_jabber" name="userid_max" value="0"></option>
+		<option type="ts_jabber" name="domain" value="easemob.com"></option>
+		<option name="file_server" id='userdb1' value="/home/easemob/.tsung/data/user-muc.data"/>
+                <option type="ts_jabber" name="muc_service" value="conference.easemob.com"/>
+	</options>
+	<sessions>
+		<session probability="0" name="muc-chat" type="ts_jabber">
+			<setdynvars sourcetype="file" fileid="userdb1" delimiter=" " order="iter">
+				<var name="organ"/>
+				<var name="app"/>
+				<var name="username"/>
+				<var name="room"/>
+			</setdynvars>
+			<request subst='true'>
+				<jabber type="connect" ack="local">
+				<xmpp_authenticate username="%%_organ%%#%%_app%%_%%_username%%" passwd="123456"/>
+				</jabber>
+			</request>
+			<transaction name="login1">
+				<request>
+					<jabber type="auth_sasl" ack="local"></jabber>
+				</request>
+				<request>
+					<jabber type="connect"  ack="local"></jabber>
+				</request>
+				<request>
+					<jabber type="auth_sasl_bind" resource="mobile4chat" ack="local"></jabber>
+				</request>
+				<request>
+					<jabber type="auth_sasl_session" ack="local"></jabber>
+				</request>
+				<request>
+					<jabber type="presence:initial" ack="no_ack"/>
+				</request>
+			</transaction>
+			<thinktime value="2"></thinktime>
+                        
+                       <setdynvars sourcetype="random_number" start="1" end="50">
+                       <var name="rndnum" />
+                       </setdynvars>
+			<for from="1" to="%%_rndnum%%" incr="1" var="counter">
+			<transaction name="mucchat">
+			        <request subst='true'>
+					<!--jabber type="muc:chat" room="ltorg0#openapp0_1425619759915280" ack="no_ack" size="16"></jabber-->
+					<jabber type="muc:chat" room="%%_room%%" ack="no_ack" size="16"></jabber>
+				</request>
+			</transaction>
+			<thinktime value="1"></thinktime>
+			</for>
+
+			<thinktime value="1000"></thinktime>
+			<transaction name="close1">
+				<request>
+					<jabber type="close" ack="no_ack"></jabber>
+				</request>
+			</transaction>
+		</session>
+	</sessions>
+</tsung>
