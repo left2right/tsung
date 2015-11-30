@@ -370,23 +370,37 @@ handle_cast({newbeams, HostList}, State=#state{logdir   = LogDir,
     LocalVM  = Config#config.use_controller_vm,
     GetLocal = fun(Host)-> is_vm_local(Host,LocalHost,LocalVM) end,
     {LocalBeams, RemoteBeams} = lists:partition(GetLocal,HostList),
-    case local_launcher(LocalBeams, LogDir, Config) of
-        {error, _Reason} ->
+    case  { local_launcher(LocalBeams, LogDir, Config), RemoteBeams} of
+        { {error, _Reason}, _ } ->
             ts_mon:abort(),
             {stop, normal,State};
-        Id0 ->
+        {Id0, [] } -> % no remote beams
+            {noreply, State#state{last_beam_id = Id0}};
+        {Id0, _ } ->
             Seed = Config#config.seed,
             Args = set_remote_args(LogDir, Config#config.ports_range),
-            {BeamsIds, LastId} = lists:mapfoldl(fun(A,Acc) -> {{A, Acc}, Acc+1} end, Id0, RemoteBeams),
+            Packed=ts_utils:pack(RemoteBeams),
+            NNodes=length(Packed),
+            MaxStartup = 9, % not 10 because os mon can also start a ssh connection
+            MinBeamPerNode = min(MaxStartup, lists:min(lists:map(fun(A)->length(A) end, Packed))),
+            SpreadedBeams = spread_nodelist(RemoteBeams),
+            {BeamsIds, LastId} = lists:mapfoldl(fun(A,Acc) -> {{A, Acc}, Acc+1} end, Id0, SpreadedBeams),
             Fun = fun({Host,Id}) -> remote_launcher(Host, Id, Args) end,
-            %% start beams in parallel, at most 10 in parallel
+            %% start beams in parallel, at most 10 in parallel per node
             %% (because sshd MaxSessions = 10, in case we have to
             %% start more than 10 beams on a single host)
-            RemoteNodes = ts_utils:pmap(Fun, BeamsIds,9),
+            MaxParalRemote=  NNodes * MinBeamPerNode + MaxStartup - MinBeamPerNode,
+            %% now try to not overload the controller:
+            MaxLaunchPerCore = Config#config.max_ssh_startup,
+            Ncores = erlang:system_info(logical_processors_available),
+            MaxParal = min(Ncores * MaxLaunchPerCore, MaxParalRemote),
+            ?LOGF("Try to start at most ~p remote nodes in parallel (cores: ~p, Max remote: ~p)",
+                  [MaxParal, Ncores, MaxParalRemote], ?INFO),
+            RemoteNodes = ts_utils:pmap(Fun, BeamsIds, MaxParal),
             check_remotes_ok(RemoteNodes),
             ?LOG("All remote beams started, syncing ~n",?NOTICE),
             global:sync(),
-            ?LOG("Syncing done, start remote tsung application ~n", ?DEB),
+            ?LOG("Syncing done, start remote tsung application ~n", ?INFO),
             {Resl, BadNodes} = rpc:multicall(RemoteNodes,tsung,start,[],?RPC_TIMEOUT),
             ?LOGF("RPC result: ~p ~p ~n",[Resl,BadNodes],?DEB),
             case BadNodes of
@@ -982,3 +996,14 @@ set_pop(Name,Popularity,[#arrivalphase{popularities=Pop}|Tail], Acc) ->
           end,
     set_pop(Name,Popularity,Tail, [New|Acc]).
 
+%% Given a list of hostname with duplicates (e.g. when cpu is > 1 or
+%% batch), try to spread the duplicates in the list, in order to start
+%% remote beams (with pmap) on different hosts, otherwize we will
+%% start several beam on the same hosts, increasing the load, and
+%% slowing down the remote nodes starting phase.
+
+spread_nodelist(L)  when length(L) < 10 ->
+    %% small list, don't bother spreading anything
+    L;
+spread_nodelist(List) ->
+    ts_utils:spread_list(List).
