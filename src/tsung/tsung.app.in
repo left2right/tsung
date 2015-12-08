@@ -42,6 +42,11 @@
                      {jabber_username, "c"},
                      {jabber_password, "pas"},
                      {jabber_domain, "mydomain.com"},
+%%% -------- JABBER OPTIONS
+                     {msync_users, 2000000},
+                     {msync_username, "c"},
+                     {msync_password, "pas"},
+                     {msync_domain, "mydomain.com"},
 %%% -------- WEBSOCKET OPTIONS
                      {websocket_path, "/chat"}
                     ]},

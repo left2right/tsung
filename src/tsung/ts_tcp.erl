@@ -35,6 +35,7 @@
 protocol_options(#proto_opts{tcp_rcv_size = Rcv, tcp_snd_size = Snd,
                              tcp_reuseaddr = Reuseaddr}) ->
     [binary,
+     {packet, 4}, %%added for msync
      {active, once},
      {reuseaddr, Reuseaddr},
      {recbuf, Rcv},

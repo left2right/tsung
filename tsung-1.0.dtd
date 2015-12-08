@@ -106,7 +106,7 @@
     id       NMTOKEN #IMPLIED
     min      NMTOKEN #IMPLIED
     max      NMTOKEN #IMPLIED
-    type     (ts_http | ts_jabber | ts_pgsql | ts_amqp) #IMPLIED
+    type     (ts_http | ts_jabber | ts_msync | ts_pgsql | ts_amqp) #IMPLIED
     value    CDATA #IMPLIED>
 
 <!ELEMENT set_option (user_agent*| certificate)>
@@ -115,7 +115,7 @@
     id       NMTOKEN #IMPLIED
     min      NMTOKEN #IMPLIED
     max      NMTOKEN #IMPLIED
-    type     (ts_http | ts_jabber | ts_pgsql) #IMPLIED
+    type     (ts_http | ts_jabber  | ts_msync | ts_pgsql) #IMPLIED
     value    CDATA #IMPLIED>
 
 <!ELEMENT certificate EMPTY >
@@ -135,7 +135,7 @@ repeat | if | change_type | foreach | set_option | interaction )*>
     persistent   (true | false) #IMPLIED
     probability   NMTOKEN #IMPLIED
     weight        NMTOKEN #IMPLIED
-    type         (ts_jabber | ts_http | ts_raw | ts_pgsql | ts_ldap | ts_webdav |ts_mysql| ts_fs | ts_shell | ts_job | ts_websocket | ts_amqp | ts_mqtt) #REQUIRED>
+    type         (ts_jabber | ts_msync | ts_http | ts_raw | ts_pgsql | ts_ldap | ts_webdav |ts_mysql| ts_fs | ts_shell | ts_job | ts_websocket | ts_amqp | ts_mqtt) #REQUIRED>
 
 <!ELEMENT session_setup EMPTY>
 <!ATTLIST session_setup
@@ -151,7 +151,7 @@ repeat | if | change_type | foreach | set_option | interaction )*>
 
 <!ELEMENT change_type EMPTY>
 <!ATTLIST change_type
-     new_type         (ts_jabber | ts_http | ts_raw | ts_pgsql | ts_ldap | ts_webdav | ts_mysql | ts_fs | ts_shell | ts_job | ts_websocket | ts_amqp | ts_mqtt) #REQUIRED
+     new_type         (ts_jabber | ts_msync | ts_http | ts_raw | ts_pgsql | ts_ldap | ts_webdav | ts_mysql | ts_fs | ts_shell | ts_job | ts_websocket | ts_amqp | ts_mqtt) #REQUIRED
      host NMTOKEN #REQUIRED
      port NMTOKEN #REQUIRED
      server_type NMTOKEN #REQUIRED
@@ -160,7 +160,7 @@ repeat | if | change_type | foreach | set_option | interaction )*>
      bidi ( true | false ) "false"
     >
 
-<!ELEMENT request ( match*, dyn_variable*, ( http | jabber | raw |
+<!ELEMENT request ( match*, dyn_variable*, ( http | jabber | msync | raw |
           pgsql | ldap | mysql |fs | shell | job | websocket | amqp | mqtt) )>
 <!ATTLIST request
     subst (true|false|all_except_body) "false"
@@ -286,6 +286,38 @@ repeat | if | change_type | foreach | set_option | interaction )*>
     passwd   CDATA #REQUIRED
     username CDATA #REQUIRED >
 
+
+<!ELEMENT msync (msync_authenticate?) >
+<!ATTLIST msync
+    ack         (global | local | no_ack | parse | bidi_ack) #REQUIRED
+    destination (online | offline | random | unique | previous) "random"
+    id          NMTOKEN #IMPLIED
+    size        NMTOKEN "0"
+    data        CDATA   #IMPLIED
+    type        NMTOKEN #REQUIRED
+    stamped     (true | false) "false"
+    show        (away|chat|dnd|xa) "chat"
+    status      CDATA   "Available"
+    nick        CDATA #IMPLIED
+    room        CDATA #IMPLIED
+    group       CDATA #IMPLIED
+    node        CDATA #IMPLIED
+    send_version (true | false) "false"
+    regexp      CDATA #IMPLIED
+    resource    CDATA "tsung"
+    node_type   CDATA #IMPLIED
+    version     CDATA #IMPLIED
+    cacertfile  CDATA #IMPLIED
+    keyfile     CDATA #IMPLIED
+    keypass     CDATA #IMPLIED
+    certfile    CDATA #IMPLIED
+    subid       CDATA #IMPLIED >
+
+<!ELEMENT msync_authenticate EMPTY >
+<!ATTLIST msync_authenticate
+    appkey   CDATA #REQUIRED
+    passwd   CDATA #REQUIRED
+    username CDATA #REQUIRED >
 
 <!ELEMENT fs EMPTY >
 <!ATTLIST fs
