@@ -48,8 +48,15 @@ get_message(Msync=#msync{regexp=RegExp}) when RegExp /= undefined->
     get_message(Msync#msync{regexp=undefined});
 get_message(_Msync=#msync{type = 'wait'}) ->
     << >>;
-get_message(Msync=#msync{id=user_defined, username=User,passwd=Pwd,type = 'connect'}) ->
-    ts_user_server:add_to_connected({User,Pwd}),
+get_message(Msync=#msync{id=user_defined,appkey=Appkey,username=Username,passwd=Pwd,domain=Domain,resource=Resource,type = 'connect'}) ->
+   JID = #'JID'{
+             app_key = list_to_binary(Appkey),
+             name = list_to_binary(Username),
+             domain = list_to_binary(Domain),
+             client_resource = list_to_binary(Resource)
+            },
+    ts_user_server:add_to_connected({JID,Pwd}),
+    ts_user_server:add_to_online(set_id(user_defined,JID,Pwd)),
     connect(Msync);
 get_message(Msync=#msync{type = 'connect'}) ->
     connect(Msync);
@@ -95,9 +102,15 @@ get_message(#msync{type = 'presence:subscribe'}) -> %% must be called AFTER iq:r
         RosterJid ->
             presence(subscribe, RosterJid)
     end;
-get_message(Msync=#msync{type = 'chat', id=Id, dest=online,username=User,passwd=Pwd, prefix=Prefix,
-                           domain=Domain,user_server=UserServer})->
-    case ts_user_server:get_online(UserServer,set_id(Id,User,Pwd)) of
+get_message(Msync=#msync{type = 'chat', id=Id, dest=online,appkey=Appkey,username=User,passwd=Pwd, prefix=Prefix,
+                           domain=Domain,resource=Resource,user_server=UserServer})->
+   JID = #'JID'{
+             app_key = list_to_binary(Appkey),
+             name = list_to_binary(User),
+             domain = list_to_binary(Domain),
+             client_resource = list_to_binary(Resource)
+            },
+    case ts_user_server:get_online(UserServer,set_id(Id,JID,Pwd)) of
         {ok, {Dest,_}} ->
             message(Dest, Msync, Domain);
         {ok, Dest} ->
@@ -309,25 +322,30 @@ get_message2(Msync=#msync{type = 'auth_sasl_session'}) ->
 
 
 %%----------------------------------------------------------------------
-%% Func: connect/1
+%% Func: make_JID/4
 %%----------------------------------------------------------------------
-connect(#msync{appkey=Appkey,username=Username,passwd=Password,domain=Domain,resource=Resource}) ->
-    JID = #'JID'{
+make_JID(Appkey,Username,Domain,Resource) ->
+    #'JID'{
              app_key = list_to_binary(Appkey),
              name = list_to_binary(Username),
              domain = list_to_binary(Domain),
              client_resource = list_to_binary(Resource)
-            },
+            }.
+
+
+%%----------------------------------------------------------------------
+%% Func: connect/1
+%%----------------------------------------------------------------------
+connect(#msync{appkey=Appkey,username=Username,passwd=Password,domain=Domain,resource=Resource}) ->
+    JID = make_JID(Appkey,Username,Domain,Resource),
     MSync = #'MSync'{
                guid = JID,
                auth = list_to_binary(Password),
-               command = 'UNREAD',
+               command = 'PROVISION',
                compress_algorimth = undefined,
                payload = undefined
               },
-    Message = msync_msg:encode(MSync, undefined),
-    io:format("login send message ~p",[Message]),
-    Message.
+    msync_msg:encode(MSync, undefined).
 
 
 
@@ -492,25 +510,61 @@ registration(#msync{username=Name,passwd=Passwd,resource=Resource})->
 %% Func: message/3
 %% Purpose: send message to defined user at the Service (aim, ...)
 %%----------------------------------------------------------------------
-message(Dest, #msync{size=Size,data=undefined,stamped=Stamped}, Service) when is_integer(Size) ->
-    Stamp = generate_stamp(Stamped),
-    PadLen = Size - length(Stamp),
-    Data = case PadLen > 0 of
-               true -> ts_utils:urandomstr_noflat(PadLen);
-               false -> ""
-           end,
-    StampAndData = Stamp ++ Data,
+message(Dest, #msync{size=Size,data=undefined,appkey=Appkey,username=User,passwd=Pwd,resource=Resource},
+        Service) when is_integer(Size) ->
+    generate_stamp(false),
+    Text =  list_to_binary("afalajflafjalgjggkeielkcdksladkwo1lslifks"),
+    FromJID = make_JID(Appkey,User,Service,Resource),
     put(previous, Dest),
-    list_to_binary([
-                    "<message id='",ts_msg_server:get_id(list), "' to='",
-                    Dest, "@", Service,
-                    "' type='chat'><body>",StampAndData, "</body></message>"]);
-message(Dest, #msync{data=Data}, Service) when is_list(Data) ->
+    MetaPayload =
+        chain:apply(
+          msync_msg_ns_chat:new(),
+          [
+           {msync_msg_ns_chat, chat, [Text]},
+           {msync_msg_ns_chat, to, [Dest]}]),
+    Meta = #'Meta'{
+              id = erlang:abs(erlang:unique_integer()),
+              to = Dest,
+              ns = 'CHAT',
+              payload = MetaPayload
+             },
+    Payload = #'CommSyncUL'{ meta = Meta},
+    MSync = #'MSync'{
+               guid = FromJID,
+               auth = Pwd,
+               command = 'SYNC',
+               compress_algorimth = undefined,
+               payload = Payload
+              },
+    msync_msg:encode(MSync, undefined);
+
+
+message(Dest, #msync{data=Data,appkey=Appkey,username=User,passwd=Pwd,resource=Resource}, Service) when is_list(Data) ->
+    Text =  list_to_binary(Data),
     put(previous, Dest),
-    list_to_binary([
-                    "<message id='",ts_msg_server:get_id(list), "' to='",
-                    Dest, "@", Service,
-                    "' type='chat'><body>",Data, "</body></message>"]).
+    ToJID = make_JID(Appkey,User,Service,Resource),
+    MetaPayload =
+        chain:apply(
+          msync_msg_ns_chat:new(),
+          [
+           {msync_msg_ns_chat, chat, [Text]},
+           {msync_msg_ns_chat, to, [ToJID]}]),
+    Meta = #'Meta'{
+              id = erlang:abs(erlang:unique_integer()),
+              to = ToJID,
+              ns = 'CHAT',
+              payload = MetaPayload
+             },
+    Payload = #'CommSyncUL'{ meta = Meta},
+    MSync = #'MSync'{
+               guid = Dest,
+               auth = Pwd,
+               command = 'SYNC',
+               compress_algorimth = undefined,
+               payload = Payload
+              },
+    msync_msg:encode(MSync, undefined).
+
 
 generate_stamp(false) ->
     "";
