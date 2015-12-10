@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<!DOCTYPE tsung SYSTEM "/usr/share/tsung/tsung-1.0.dtd">
+<tsung loglevel="debug" dumptraffic="true" version="1.0">
+	<clients>
+		<client host="client1" maxusers="60000" cpu="2"></client>
+	</clients>
+	<servers>
+		<server host="msync1" port="6717" type="tcp"/>
+	</servers>
+	<load>
+		<arrivalphase phase="1" duration="500" unit="second">
+		        <session_setup name="msync-test" probability="100"/>
+		        <users maxnumber="200000" arrivalrate="1" unit="second"></users>
+		</arrivalphase>
+	</load>
+	<options>
+		<option type="ts_msync" name="userid_max" value="0"></option>
+		<option type="ts_msync" name="domain" value="DOMAINNAME.com"></option>
+		<option name="file_server" id='userdb1' value="msync.data"/>
+                <option type="ts_msync" name="muc_service" value="conference.CONFERENCENAME.com"/>
+	</options>
+	<sessions>
+		<session probability="0" name="msync-test" type="ts_msync">
+			<setdynvars sourcetype="file" fileid="userdb1" delimiter=" " order="iter">
+				<var name="organ"/>
+				<var name="app"/>
+				<var name="user"/>
+			</setdynvars>
+			<transaction name="login">
+				<request subst='true'>
+					<msync type="connect" resource="mobile" ack="local">
+					<msync_authenticate appkey="%%_organ%%#%%_app%%" username="%%_user%%" passwd="123456"/>
+					</msync>
+				</request>
+			</transaction>
+			<transaction name="chat">
+				<request subst='true'>
+		                        <msync type="chat" resource="mobile" destination="online" data="loadtest" ack="local"></msync>
+				</request>
+			</transaction>
+			<!--transaction name="mucchat">
+			        <request subst='true'>
+					<msync type="muc:chat" room="%%_room%%" ack="no_ack" size="16"></msync>
+				</request>
+			</transaction-->
+			<thinktime value="200"></thinktime>
+			<!--transaction name="close1">
+				<request>
+					<msync type="close" ack="no_ack"></msync>
+				</request>
+			</transaction-->
+		</session>
+	</sessions>
+
+</tsung>
