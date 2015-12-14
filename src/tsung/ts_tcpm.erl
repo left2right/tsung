@@ -23,7 +23,7 @@
 %%%  the two; the MPL (Mozilla Public License), which EPL (Erlang
 %%%  Public License) is based on, is included in this exception.
 
--module(ts_tcp).
+-module(ts_tcpm).
 
 -export([ connect/4, send/3, close/1, set_opts/2, protocol_options/1, normalize_incomming_data/2 ]).
 
