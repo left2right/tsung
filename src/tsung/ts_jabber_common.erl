@@ -642,7 +642,7 @@ registration(#jabber{username=Name,passwd=Passwd,resource=Resource})->
 %% Func: message/3
 %% Purpose: send message to defined user at the Service (aim, ...)
 %%----------------------------------------------------------------------
-message(Dest, #jabber{size=Size,data=undefined,stamped=Stamped}, Service) when is_integer(Size) ->
+message(Dest, #jabber{size=Size,data=undefined,stamped=Stamped,username=User}, Service) when is_integer(Size) ->
     Stamp = generate_stamp(Stamped),
     PadLen = Size - length(Stamp),
     Data = case PadLen > 0 of
@@ -653,15 +653,17 @@ message(Dest, #jabber{size=Size,data=undefined,stamped=Stamped}, Service) when i
     put(previous, Dest),
     list_to_binary([
                     "<message id='",ts_msg_server:get_id(list), "' to='",
-                    Dest, "@", Service,
+                    %%Dest, "@", Service,
+                    Dest, "@", Service, "' from='", User, "@",  Service,
                     %%"' type='chat'><body>",StampAndData, "</body></message>"]);
 		    "' type='chat'><body>{\"from\":\" \",\"to\":\" \",\"bodies\":[{\"type\":\"txt\",\"msg\":\"",StampAndData,"\"}],\"ext\":{}}",
 		    "</body></message>"]);
-message(Dest, #jabber{data=Data}, Service) when is_list(Data) ->
+message(Dest, #jabber{data=Data,username=User}, Service) when is_list(Data) ->
     put(previous, Dest),
     list_to_binary([
                     "<message id='",ts_msg_server:get_id(list), "' to='",
-                    Dest, "@", Service,
+                    %%Dest, "@", Service,
+                    Dest, "@", Service, "' from='", User, "@",  Service,
                     %%"' type='chat'><body>",Data, "</body></message>"]).
 		    "' type='chat'><body>{\"from\":\" \",\"to\":\" \",\"bodies\":[{\"type\":\"txt\",\"msg\":\"",Data,"\"}],\"ext\":{}}",
 		    "</body></message>"]).
