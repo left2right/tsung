@@ -343,7 +343,7 @@ connect(#msync{appkey=Appkey,username=Username,passwd=Password,domain=Domain,res
                auth = list_to_binary(Password),
                command = 'PROVISION',
                compress_algorimth = undefined,
-               payload = undefined
+               payload = #'Provision'{compress_type = ['COMPRESS_NONE']}
               },
     msync_msg:encode(MSync, undefined).
 
