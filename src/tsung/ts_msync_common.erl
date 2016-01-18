@@ -273,8 +273,8 @@ get_message(#msync{type = 'pubsub:publish', size=Size, username=Username,
 %% MUC benchmark support
 get_message(#msync{type = 'muc:join', room = Room, nick = Nick, muc_service = Service }) ->
     muc_join(Room,Nick, Service);
-get_message(#msync{type = 'muc:chat', room = Room, muc_service = Service, size = Size}) ->
-    muc_chat(Room, Service, Size);
+get_message(#msync{type = 'muc:chat', appkey=Appkey, room = Room, muc_service = Service, size = Size}) ->
+    muc_chat(Appkey, Room, Service, Size);
 get_message(#msync{type = 'muc:nick', room = Room, muc_service = Service, nick = Nick}) ->
     muc_nick(Room, Nick, Service);
 get_message(#msync{type = 'muc:exit', room = Room, muc_service = Service, nick = Nick}) ->
@@ -326,10 +326,10 @@ get_message2(Msync=#msync{type = 'auth_sasl_session'}) ->
 %%----------------------------------------------------------------------
 make_JID(Appkey,Username,Domain,Resource) ->
     #'JID'{
-             app_key = list_to_binary(Appkey),
-             name = list_to_binary(Username),
-             domain = list_to_binary(Domain),
-             client_resource = list_to_binary(Resource)
+             app_key = Appkey,
+             name = Username,
+             domain = Domain,
+             client_resource = Resource
             }.
 
 
@@ -337,7 +337,7 @@ make_JID(Appkey,Username,Domain,Resource) ->
 %% Func: connect/1
 %%----------------------------------------------------------------------
 connect(#msync{appkey=Appkey,username=Username,passwd=Password,domain=Domain,resource=Resource}) ->
-    JID = make_JID(Appkey,Username,Domain,Resource),
+    JID = make_JID(list_to_binary(Appkey),list_to_binary(Username),list_to_binary(Domain),list_to_binary(Resource)),
     MSync = #'MSync'{
                guid = JID,
                auth = list_to_binary(Password),
@@ -510,11 +510,10 @@ registration(#msync{username=Name,passwd=Passwd,resource=Resource})->
 %% Func: message/3
 %% Purpose: send message to defined user at the Service (aim, ...)
 %%----------------------------------------------------------------------
-message(Dest, #msync{size=Size,data=undefined,appkey=Appkey,username=User,passwd=Pwd,resource=Resource},
-        Service) when is_integer(Size) ->
+message(Dest, #msync{size=Size,data=undefined},
+        _Service) when is_integer(Size) ->
     generate_stamp(false),
-    Text =  list_to_binary("afalajflafjalgjggkeielkcdksladkwo1lslifks"),
-    FromJID = make_JID(Appkey,User,Service,Resource),
+    Text = list_to_binary(ts_utils:urandomstr_noflat(Size)),
     put(previous, Dest),
     MetaPayload =
         chain:apply(
@@ -530,8 +529,6 @@ message(Dest, #msync{size=Size,data=undefined,appkey=Appkey,username=User,passwd
              },
     Payload = #'CommSyncUL'{ meta = Meta},
     MSync = #'MSync'{
-               guid = FromJID,
-               auth = Pwd,
                command = 'SYNC',
                compress_algorimth = undefined,
                payload = Payload
@@ -539,26 +536,23 @@ message(Dest, #msync{size=Size,data=undefined,appkey=Appkey,username=User,passwd
     msync_msg:encode(MSync, undefined);
 
 
-message(Dest, #msync{data=Data,appkey=Appkey,username=User,passwd=Pwd,resource=Resource}, Service) when is_list(Data) ->
+message(Dest, #msync{data=Data}, _Service) when is_list(Data) ->
     Text =  list_to_binary(Data),
     put(previous, Dest),
-    ToJID = make_JID(Appkey,User,Service,Resource),
     MetaPayload =
         chain:apply(
           msync_msg_ns_chat:new(),
           [
            {msync_msg_ns_chat, chat, [Text]},
-           {msync_msg_ns_chat, to, [ToJID]}]),
+           {msync_msg_ns_chat, to, [Dest]}]),
     Meta = #'Meta'{
               id = erlang:abs(erlang:unique_integer()),
-              to = ToJID,
+              to = Dest,
               ns = 'CHAT',
               payload = MetaPayload
              },
     Payload = #'CommSyncUL'{ meta = Meta},
     MSync = #'MSync'{
-               guid = Dest,
-               auth = Pwd,
                command = 'SYNC',
                compress_algorimth = undefined,
                payload = Payload
@@ -779,11 +773,30 @@ muc_join(Room,Nick, Service) ->
                              " </presence>"]),
     Result.
 
-muc_chat(Room, Service, Size) ->
-    Result = list_to_binary(["<message type='groupchat' to ='", Room,"@", Service,"'>",
-                                "<body>", ts_utils:urandomstr_noflat(Size), "</body>",
-                                "</message>"]),
-    Result.
+%%message(Dest, #msync{data=Data,appkey=Appkey,username=User,passwd=Pwd,resource=Resource}, Service) when is_list(Data) ->
+muc_chat(Appkey, Room, Service, Size) ->
+    Text =  list_to_binary(ts_utils:urandomstr_noflat(Size)),
+    ToJID = make_JID(list_to_binary(Appkey),list_to_binary(Room),list_to_binary(Service),undefined),
+    MetaPayload =
+        chain:apply(
+          msync_msg_ns_chat:new(),
+          [
+           {msync_msg_ns_chat, gchat, [Text]},
+           {msync_msg_ns_chat, to, [ToJID]}]),
+    Meta = #'Meta'{
+              id = erlang:abs(erlang:unique_integer()),
+              to = ToJID,
+              ns = 'CHAT',
+              payload = MetaPayload
+             },
+    Payload = #'CommSyncUL'{ meta = Meta},
+    MSync = #'MSync'{
+               command = 'SYNC',
+               compress_algorimth = undefined,
+               payload = Payload
+              },
+    msync_msg:encode(MSync, undefined).
+
 muc_nick(Room, Nick, Service) ->
     Result = list_to_binary(["<presence to='", Room,"@", Service,"/", Nick, "'/>"]),
     Result.
