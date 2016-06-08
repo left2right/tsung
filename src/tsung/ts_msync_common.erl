@@ -34,7 +34,7 @@
 -include("ts_macros.hrl").
 -include("ts_profile.hrl").
 -include("ts_msync.hrl").
--include("/home/easemob/yqzhang/im_libs/apps/msync_proto/include/pb_msync.hrl").
+-include("/home/easemob/im_libs/apps/msync_proto/include/pb_msync.hrl").
 
 
 %%----------------------------------------------------------------------

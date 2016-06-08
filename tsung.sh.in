@@ -39,7 +39,7 @@ WEB_GUI=true
 KEEP_WEB_GUI=false
 EXCLUDE_TAG_LIST=""
 
-PBPATH=/home/easemob/yqzhang/im_libs/apps/msync_proto/ebin
+PBPATH=$HOME/im_libs/apps/msync_proto/ebin
 TSUNGPATH=$INSTALL_DIR/lib/tsung-$VERSION/ebin
 CONTROLLERPATH=$INSTALL_DIR/lib/tsung_controller-$VERSION/ebin
 EXTRA_LOAD_PATHS=""
