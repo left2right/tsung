@@ -183,7 +183,7 @@ do
         k) KEEP_WEB_GUI="true";;
         d) DEBUG_LEVEL=$OPTARG;;
         p) MAX_PROCESS=$OPTARG;;
-        t) SERVER_TYPE=$OPTARG;;
+        t) SERVER_TYPE="-type \"$OPTARG\"";;
         X) EXTRA_LOAD_PATHS="$EXTRA_LOAD_PATHS -pa $OPTARG";;
         r) ERL_RSH=" -rsh $OPTARG ";;
         6) PROTO_DIST=" -proto_dist inet6_tcp ";;
