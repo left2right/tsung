@@ -39,10 +39,10 @@ WEB_GUI=true
 KEEP_WEB_GUI=false
 EXCLUDE_TAG_LIST=""
 
-PBPATH=$HOME/im_libs/apps/msync_proto/ebin
 TSUNGPATH=$INSTALL_DIR/lib/tsung-$VERSION/ebin
 CONTROLLERPATH=$INSTALL_DIR/lib/tsung_controller-$VERSION/ebin
 EXTRA_LOAD_PATHS=""
+SERVER_TYPE="-type xmpp"
 
 CONF_OPT_FILE="$HOME/.tsung/tsung.xml"
 DEBUG_LEVEL=5
@@ -55,7 +55,7 @@ SSL_CACHE="ts_ssl_session_cache"
 SSL_SESSION_LIFETIME="600"
 
 stop() {
-    $ERL $ERL_OPTS $ERL_RSH -noshell $PROTO_DIST $NAMETYPE killer -setcookie $COOKIE $EXTRA_LOAD_PATHS -pa $TSUNGPATH -pa $CONTROLLERPATH -s tsung_controller stop_all $HOST -s init stop
+    $ERL $ERL_OPTS $ERL_RSH -noshell $PROTO_DIST $NAMETYPE killer -setcookie $COOKIE $EXTRA_LOAD_PATHS $SERVER_TYPE -pa $TSUNGPATH -pa $CONTROLLERPATH -s tsung_controller stop_all $HOST -s init stop
 }
 
 start() {
@@ -63,8 +63,8 @@ start() {
     $ERL $ERL_OPTS $ERL_RSH -noshell $PROTO_DIST $NAMETYPE $CONTROLLER -setcookie $COOKIE \
     +P $MAX_PROCESS \
     -s tsung_controller \
-    $EXTRA_LOAD_PATHS \
-    -pa $TSUNGPATH -pa $CONTROLLERPATH -pa  $PBPATH \
+    $EXTRA_LOAD_PATHS $SERVER_TYPE \
+    -pa $TSUNGPATH -pa $CONTROLLERPATH \
     -ssl session_cb $SSL_CACHE \
     -ssl session_lifetime $SSL_SESSION_LIFETIME \
     -sasl sasl_error_logger false \
@@ -81,8 +81,8 @@ debug() {
     $ERL $ERL_OPTS $ERL_RSH $NAMETYPE $CONTROLLER $PROTO_DIST -setcookie $COOKIE  \
      +P $MAX_PROCESS \
      -s tsung_controller \
-     $EXTRA_LOAD_PATHS \
-     -pa $TSUNGPATH -pa $CONTROLLERPATH  -pa $PBPATH \
+     $EXTRA_LOAD_PATHS  $SERVER_TYPE\
+     -pa $TSUNGPATH -pa $CONTROLLERPATH \
      -ssl session_cb $SSL_CACHE \
      -ssl session_lifetime $SSL_SESSION_LIFETIME \
      -sasl sasl_error_logger \{file\,\"$LOG_DIR/tsung-sasl.log\"\} \
@@ -125,7 +125,7 @@ logdir() {
 
 status() {
     SNAME=tsung_status_$RANDOM
-    $ERL -noshell $NAMETYPE $SNAME -setcookie $COOKIE $EXTRA_LOAD_PATHS -pa $TSUNGPATH -pa $CONTROLLERPATH -s tsung_controller status $HOST -s init stop
+    $ERL -noshell $NAMETYPE $SNAME -setcookie $COOKIE $EXTRA_LOAD_PATHS $SERVER_TYPE -pa $TSUNGPATH -pa $CONTROLLERPATH -s tsung_controller status $HOST -s init stop
 }
 
 checkrunning_controller() {
@@ -158,11 +158,12 @@ usage() {
     echo "    -v            print version information and exit"
     echo "    -6            use IPv6 for Tsung internal communications"
     echo "    -x <tags>     list of requests tag to be excluded from the run (separated by comma)"
+    echo "    -t <type>     set server type xmpp/msync (default is xmpp)"
     echo "    -h            display this help and exit"
     exit
 }
 
-while getopts "6vhknf:l:d:r:i:Fsw:m:p:x:X:" Option
+while getopts "6vhknf:l:d:r:i:Fsw:m:p:t:x:X:" Option
 do
     case $Option in
         f) CONF_OPT_FILE=$OPTARG;;
@@ -182,6 +183,7 @@ do
         k) KEEP_WEB_GUI="true";;
         d) DEBUG_LEVEL=$OPTARG;;
         p) MAX_PROCESS=$OPTARG;;
+        t) SERVER_TYPE=$OPTARG;;
         X) EXTRA_LOAD_PATHS="$EXTRA_LOAD_PATHS -pa $OPTARG";;
         r) ERL_RSH=" -rsh $OPTARG ";;
         6) PROTO_DIST=" -proto_dist inet6_tcp ";;
