@@ -63,7 +63,7 @@ get_message(Msync=#msync{type = 'connect'}) ->
 get_message(#msync{type = 'starttls'}) ->
     starttls();
 get_message(#msync{type = 'close', id=Id,username=User,passwd=Pwd,user_server=UserServer}) ->
-    ts_user_server:remove_connected(UserServer,set_id(Id,User,Pwd)),
+    ts_user_server:remove_connected(UserServer,set_id(user_defined,User,Pwd)),
     close();
 
 get_message(Msync=#msync{type = 'chat', id=Id, dest=online,appkey=Appkey,username=User,passwd=Pwd, prefix=Prefix,
@@ -74,11 +74,11 @@ get_message(Msync=#msync{type = 'chat', id=Id, dest=online,appkey=Appkey,usernam
              domain = list_to_binary(Domain),
              client_resource = list_to_binary(Resource)
             },
-    case ts_user_server:get_online(UserServer,set_id(Id,JID,Pwd)) of
+    case ts_user_server:get_online(UserServer,set_id(user_defined,JID,Pwd)) of
         {ok, {Dest,_}} ->
-            message(Dest, Msync, Domain);
+            message(JID, Dest, Msync, Domain);
         {ok, Dest} ->
-            message(ts_msync:username(Prefix,Dest), Msync, Domain);
+            message(JID, ts_msync:username(Prefix,Dest), Msync, Domain);
         {error, no_online} ->
             ts_mon:add({ count, error_no_online }),
             << >>
@@ -87,9 +87,9 @@ get_message(Msync=#msync{type = 'chat', id=Id, dest=online,appkey=Appkey,usernam
 get_message(Msync=#msync{type = 'chat',domain=Domain,prefix=Prefix,dest=offline,user_server=UserServer})->
     case ts_user_server:get_offline(UserServer) of
         {ok, {Dest,_}} ->
-            message(Dest, Msync, Domain);
+            message(Dest, Dest, Msync, Domain);
         {ok, Dest} ->
-            message(ts_msync:username(Prefix,Dest), Msync, Domain);
+            message(ts_msync:username(Prefix,Dest), ts_msync:username(Prefix,Dest), Msync, Domain);
         {error, no_offline} ->
             ts_mon:add({ count, error_no_offline }),
             << >>
@@ -100,17 +100,17 @@ get_message(Msync=#msync{type = 'chat', dest=random, prefix=Prefix, domain=Domai
             ?LOGF("Can't find a random user (~p)~n", [Msg],?ERR),
             << >>;
         {Dest,_} ->
-            message(Dest, Msync, Domain);
+            message(Dest, Dest, Msync, Domain);
         DestId    ->
-            message(ts_msync:username(Prefix,DestId), Msync, Domain)
+            message(ts_msync:username(Prefix,DestId), ts_msync:username(Prefix,DestId), Msync, Domain)
     end;
 
 get_message(Msync=#msync{type = 'chat', dest=unique, prefix=Prefix, domain=Domain,user_server=UserServer})->
     case ts_user_server:get_first(UserServer) of
         {Dest, _}  ->
-            message(Dest, Msync, Domain);
+            message(Dest, Dest, Msync, Domain);
         IdDest ->
-            message(ts_msync:username(Prefix,IdDest), Msync, Domain)
+            message(ts_msync:username(Prefix,IdDest), ts_msync:username(Prefix,IdDest), Msync, Domain)
     end;
 get_message(_Msync=#msync{type = 'chat', id=_Id, dest = undefined, domain=_Domain}) ->
     %% this can happen if previous is set but undefined, skip
@@ -118,11 +118,17 @@ get_message(_Msync=#msync{type = 'chat', id=_Id, dest = undefined, domain=_Domai
     << >>;
 get_message(Msync=#msync{type = 'chat', id=_Id, dest = Dest, domain=Domain}) ->
     ?DebugF("~w -> ~w ~n", [_Id,  Dest]),
-    message(Dest, Msync, Domain);
+    message(Dest, Dest, Msync, Domain);
 
 %% MUC benchmark support
-get_message(#msync{type = 'muc:chat', appkey=Appkey, room = Room, muc_service = Service, size = Size}) ->
-    muc_chat(Appkey, Room, Service, Size).
+get_message(#msync{type = 'muc:chat', appkey=Appkey, room = Room, muc_service = Service, username=User, size = Size, domain=Domain, resource=Resource}) ->
+    JID = #'JID'{
+             app_key = list_to_binary(Appkey),
+             name = list_to_binary(User),
+             domain = list_to_binary(Domain),
+             client_resource = list_to_binary(Resource)
+            },
+    muc_chat(Appkey, Room, Service, Size, JID).
 
 %%----------------------------------------------------------------------
 %% Func: make_JID/4
@@ -161,12 +167,12 @@ close () -> list_to_binary("</stream:stream>").
 %%----------------------------------------------------------------------
 starttls()->
     <<"<starttls xmlns=\"urn:ietf:params:xml:ns:xmpp-tls\"/>">>.
-    
+
 %%----------------------------------------------------------------------
 %% Func: message/3
 %% Purpose: send message to defined user at the Service (aim, ...)
 %%----------------------------------------------------------------------
-message(Dest, #msync{size=Size,data=undefined},
+message(From, Dest, #msync{size=Size,data=undefined},
         _Service) when is_integer(Size) ->
     generate_stamp(false),
     Text = list_to_binary(ts_utils:urandomstr_noflat(Size)),
@@ -176,9 +182,11 @@ message(Dest, #msync{size=Size,data=undefined},
           msync_msg_ns_chat:new(),
           [
            {msync_msg_ns_chat, chat, [Text]},
-           {msync_msg_ns_chat, to, [Dest]}]),
+           {msync_msg_ns_chat, from, [From#'JID'.name]},
+           {msync_msg_ns_chat, to, [Dest#'JID'.name]}]),
     Meta = #'Meta'{
               id = erlang:abs(erlang:unique_integer()),
+              from = From,
               to = Dest,
               ns = 'CHAT',
               payload = MetaPayload
@@ -192,7 +200,7 @@ message(Dest, #msync{size=Size,data=undefined},
     msync_msg:encode(MSync, undefined);
 
 
-message(Dest, #msync{data=Data}, _Service) when is_list(Data) ->
+message(From, Dest, #msync{data=Data}, _Service) when is_list(Data) ->
     Text =  list_to_binary(Data),
     put(previous, Dest),
     MetaPayload =
@@ -200,9 +208,11 @@ message(Dest, #msync{data=Data}, _Service) when is_list(Data) ->
           msync_msg_ns_chat:new(),
           [
            {msync_msg_ns_chat, chat, [Text]},
-           {msync_msg_ns_chat, to, [Dest]}]),
+           {msync_msg_ns_chat, from, [From#'JID'.name]},
+           {msync_msg_ns_chat, to, [Dest#'JID'.name]}]),
     Meta = #'Meta'{
               id = erlang:abs(erlang:unique_integer()),
+              from = From,
               to = Dest,
               ns = 'CHAT',
               payload = MetaPayload
@@ -226,7 +236,7 @@ generate_stamp(true) ->
     "@@@" ++ integer_to_list(erlang:phash2(node())) ++ "," ++ TS ++ "@@@".
 
 %%message(Dest, #msync{data=Data,appkey=Appkey,username=User,passwd=Pwd,resource=Resource}, Service) when is_list(Data) ->
-muc_chat(Appkey, Room, Service, Size) ->
+muc_chat(Appkey, Room, Service, Size, From) ->
     Text =  list_to_binary(ts_utils:urandomstr_noflat(Size)),
     ToJID = make_JID(list_to_binary(Appkey),list_to_binary(Room),list_to_binary(Service),undefined),
     MetaPayload =
@@ -234,9 +244,11 @@ muc_chat(Appkey, Room, Service, Size) ->
           msync_msg_ns_chat:new(),
           [
            {msync_msg_ns_chat, gchat, [Text]},
-           {msync_msg_ns_chat, to, [ToJID]}]),
+           {msync_msg_ns_chat, from, [From#'JID'.name]},
+           {msync_msg_ns_chat, to, [Room]}]),
     Meta = #'Meta'{
               id = erlang:abs(erlang:unique_integer()),
+              from = From,
               to = ToJID,
               ns = 'CHAT',
               payload = MetaPayload
