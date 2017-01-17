@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<!DOCTYPE tsung SYSTEM "/usr/local/share/tsung/tsung-1.0.dtd">
+<tsung loglevel="debug" dumptraffic="false" version="1.0">
+	<clients>
+		<client host="localhost" maxusers="60000" cpu="4"></client>
+	</clients>
+	<servers>
+		<server host="msync-server" port="6717" type="tcp"/>
+	</servers>
+
+	<load>
+		<arrivalphase phase="1" duration="50" unit="second">
+		        <session_setup name="muc-chat" probability="100"/>
+			<users maxnumber="200000" arrivalrate="1" unit="second"></users>
+		</arrivalphase>
+	</load>
+	<options>
+		<option type="ts_msync" name="userid_max" value="0"></option>
+		<option type="ts_msync" name="domain" value="easemob.com"></option>
+		<option name="file_server" id='userdb1' value="./msync.data"/>
+                <option type="ts_msync" name="muc_service" value="conference.easemob.com"/>
+	</options>
+	<sessions>
+		<session probability="0" name="muc-chat" type="ts_msync">
+			<setdynvars sourcetype="file" fileid="userdb1" delimiter=" " order="iter">
+				<var name="organ"/>
+				<var name="app"/>
+				<var name="user"/>
+				<var name="room"/>
+			</setdynvars>
+			<transaction name="login1">
+			<request subst='true'>
+				<msync type="connect" resource="mobile" ack="local">
+			              <msync_authenticate appkey="%%_organ%%#%%_app%%" username="%%_user%%" passwd="123456"/>
+				</msync>
+			</request>
+			</transaction>
+			<thinktime value="2"></thinktime>
+			<transaction name="chat">
+			      <request subst='true'>
+			              <msync type="chat" resource="mobile" destination="online" data="loadtest" ack="local"></msync>
+			     </request>
+			</transaction>
+			<thinktime value="2"></thinktime>
+			<transaction name="mucchat">
+			        <request subst='true'>
+					<msync type="muc:chat" room="%%_room%%" ack="no_ack" size="16"></msync>
+				</request>
+			</transaction>
+			<thinktime value="100"></thinktime>
+		</session>
+	</sessions>
+</tsung>

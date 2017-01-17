@@ -62,11 +62,11 @@ get_message(Msync=#msync{type = 'connect'}) ->
     connect(Msync);
 get_message(#msync{type = 'starttls'}) ->
     starttls();
-get_message(#msync{type = 'close', id=Id,username=User,passwd=Pwd,user_server=UserServer}) ->
+get_message(#msync{type = 'close', username=User,passwd=Pwd,user_server=UserServer}) ->
     ts_user_server:remove_connected(UserServer,set_id(user_defined,User,Pwd)),
     close();
 
-get_message(Msync=#msync{type = 'chat', id=Id, dest=online,appkey=Appkey,username=User,passwd=Pwd, prefix=Prefix,
+get_message(Msync=#msync{type = 'chat', dest=online,appkey=Appkey,username=User,passwd=Pwd, prefix=Prefix,
                            domain=Domain,resource=Resource,user_server=UserServer})->
    JID = #'JID'{
              app_key = list_to_binary(Appkey),
@@ -182,8 +182,8 @@ message(From, Dest, #msync{size=Size,data=undefined},
           msync_msg_ns_chat:new(),
           [
            {msync_msg_ns_chat, chat, [Text]},
-           {msync_msg_ns_chat, from, [From#'JID'.name]},
-           {msync_msg_ns_chat, to, [Dest#'JID'.name]}]),
+           {msync_msg_ns_chat, from, [From]},
+           {msync_msg_ns_chat, to, [Dest]}]),
     Meta = #'Meta'{
               id = erlang:abs(erlang:unique_integer()),
               from = From,
@@ -208,8 +208,8 @@ message(From, Dest, #msync{data=Data}, _Service) when is_list(Data) ->
           msync_msg_ns_chat:new(),
           [
            {msync_msg_ns_chat, chat, [Text]},
-           {msync_msg_ns_chat, from, [From#'JID'.name]},
-           {msync_msg_ns_chat, to, [Dest#'JID'.name]}]),
+           {msync_msg_ns_chat, from, [From]},
+           {msync_msg_ns_chat, to, [Dest]}]),
     Meta = #'Meta'{
               id = erlang:abs(erlang:unique_integer()),
               from = From,
@@ -238,18 +238,18 @@ generate_stamp(true) ->
 %%message(Dest, #msync{data=Data,appkey=Appkey,username=User,passwd=Pwd,resource=Resource}, Service) when is_list(Data) ->
 muc_chat(Appkey, Room, Service, Size, From) ->
     Text =  list_to_binary(ts_utils:urandomstr_noflat(Size)),
-    ToJID = make_JID(list_to_binary(Appkey),list_to_binary(Room),list_to_binary(Service),undefined),
+    Dest = make_JID(list_to_binary(Appkey),list_to_binary(Room),list_to_binary(Service),undefined),
     MetaPayload =
         chain:apply(
           msync_msg_ns_chat:new(),
           [
            {msync_msg_ns_chat, gchat, [Text]},
-           {msync_msg_ns_chat, from, [From#'JID'.name]},
-           {msync_msg_ns_chat, to, [Room]}]),
+           {msync_msg_ns_chat, from, [From]},
+           {msync_msg_ns_chat, to, [Dest]}]),
     Meta = #'Meta'{
               id = erlang:abs(erlang:unique_integer()),
               from = From,
-              to = ToJID,
+              to = Dest,
               ns = 'CHAT',
               payload = MetaPayload
              },
